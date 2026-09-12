@@ -317,45 +317,6 @@ def yoy_volatility(series: Sequence[float]) -> dict:
             "max_abs_change": round(mx, 4), "score": round(score, 2)}
 
 
-def per_child_year_fee(fee: dict | None) -> float:
-    """依公告收費明細推估單一幼生之年度應繳金額。
-
-    月費類（學費）以 (月數 - 1) 計（多數園所寒暑假月份減收），
-    學期制費用（材料費、其他代辦費）按年計，交通費以 40% 使用率折算。
-    """
-    if not fee:
-        return 0.0
-    months = fee.get("months") or 12
-    m = max(1, months - 1)
-    return ((fee.get("tuition") or 0) + (fee.get("misc_fee") or 0) / max(1, months) * 3) * m \
-        + (fee.get("meal_fee") or 0) * m \
-        + (fee.get("material_fee") or 0) + (fee.get("other_fee") or 0) \
-        + (fee.get("transport_fee") or 0) * 0.4
-
-
-def fee_cross_check(fee: dict | None, fin: dict | None, enrolled: int | None) -> dict:
-    """收費明細 × 實際幼生數 vs 決算學雜費收入 交叉核對。
-
-    落差為正（申報收入 < 推估收入）→ 可能收入未完整入帳；
-    落差為負（申報收入 > 推估收入）→ 可能超收或有未公告收費項目。
-    """
-    if not fee or not fin or not enrolled:
-        return {"available": False, "gap_ratio": None, "score": 0.0,
-                "estimated": None, "reported": None, "direction": "資料不足"}
-    estimated = per_child_year_fee(fee) * enrolled
-    reported = fin.get("revenue_tuition") or 0
-    if estimated <= 0:
-        return {"available": False, "gap_ratio": None, "score": 0.0,
-                "estimated": None, "reported": reported, "direction": "資料不足"}
-    gap = (estimated - reported) / estimated
-    score = max(0.0, min(100.0, (abs(gap) - 0.08) / 0.35 * 100))
-    direction = "申報收入低於推估（疑收入未完整入帳）" if gap > 0.10 else \
-        ("申報收入高於推估（疑超收或未公告收費）" if gap < -0.10 else "落差在合理範圍")
-    return {"available": True, "gap_ratio": round(gap, 4), "score": round(score, 2),
-            "estimated": int(estimated), "reported": int(reported),
-            "direction": direction}
-
-
 def peer_key(inst: dict) -> str:
     """同儕群組：設立類型 + 規模級距（跨縣市可比）。"""
     cap = inst.get("approved_capacity") or 0

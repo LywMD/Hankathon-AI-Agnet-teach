@@ -21,8 +21,7 @@ AI_REPORTS_FILE = config.OUTPUT_DIR / "ai_reports.json"
 ANOMALY_FEATURES = [
     "r_personnel_ratio", "r_admin_ratio", "r_surplus_ratio", "r_teaching_ratio",
     "r_cost_per_student", "r_subsidy_dependency", "last2_score", "round_score",
-    "yoy_expense_score", "fee_gap_score", "over_enroll", "student_teacher",
-    "student_teacher_age2", "student_teacher_age35", "turnover",
+    "yoy_expense_score",
 ]
 
 
@@ -254,29 +253,10 @@ class Engine:
 
 
     def _availability(self, rec: dict) -> dict[str, bool]:
-        """單一機構之構面可得性：全域無來源資料的構面一律不可得；「營運」構面
-        另外依該機構本身是否有招收規模／人員資料逐筆判斷（例如本系統擷取到的
-        市立學校決算僅有收支金額，無招生與人員資料，此構面對其不可得）。
-        """
+        """單一機構之構面可得性：全域無來源資料的構面一律不可得。"""
         g = getattr(self, "dim_availability_global", {})
-        inst = rec["inst"]
-        f = rec["features"]
-        # 營運構面的可得性要看「來源欄位是否存在」，不能看衍生特徵是否為
-        # None，也不能只看有沒有核定人數：
-        #
-        # * 官方主檔對每一所都有核定人數，但缺少**實際招收人數**與
-        #   **教保人員數**，因此超收率與師生比全都算不出來。
-        # * features 對算不出來的指標會給 0.0（例如 over_enroll=0.0、
-        #   principal_multi=0）而非 None，所以用 `is not None` 判斷會誤認為
-        #   有資料。
-        #
-        # 若誤判為可得，該構面會對所有機構一律給 0 分卻照 15% 權重計入，
-        # 等於把「查不到資料」當成「營運無虞」，並稀釋其他有訊號的構面。
-        ops = (inst.get("enrolled") is not None
-               or inst.get("teacher_count") is not None
-               or f.get("turnover") is not None)
         return {"compliance": g.get("compliance", True), "financial": True,
-                "operation": ops, "evaluation": g.get("evaluation", True),
+                "evaluation": g.get("evaluation", True),
                 "sentiment": g.get("sentiment", True)}
 
     def _attach_anomaly(self, recs: list[dict]) -> None:
@@ -595,13 +575,6 @@ class Engine:
              for r in recs if (r["detail"].get("last_two") or {}).get("sufficient")),
             key=lambda x: -(x["score"] or 0))[:20]
 
-        gaps = sorted(
-            ({"inst_id": r["inst"]["inst_id"], "name": r["inst"]["name"],
-              "org_type": r["inst"]["org_type"],
-              **(r["detail"].get("cross_check") or {})}
-             for r in recs if (r["detail"].get("cross_check") or {}).get("available")),
-            key=lambda x: -abs(x.get("gap_ratio") or 0))[:20]
-
         ratio_box = []
         for rn in ["personnel_ratio", "teaching_ratio", "admin_ratio", "surplus_ratio",
                    "meal_ratio", "facility_ratio"]:
@@ -666,7 +639,6 @@ class Engine:
             },
             "last_two_offenders": offenders,
             "first_digit_offenders": first_digit_top,
-            "cross_check_gaps": gaps,
             "ratio_box": ratio_box,
             "anomaly_top": anomaly_top,
             "scatter": scatter,

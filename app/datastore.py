@@ -49,13 +49,6 @@ ALIASES: dict[str, list[str]] = {
     "enrolled": ["實際招收人數", "現有幼生數", "在園幼生數", "招收現況", "enrolled", "幼生人數"],
     "teacher_count": ["教保服務人員數", "教師人數", "教保員人數", "teachers", "師資人數"],
     "staff_count": ["員工人數", "職員人數", "總員額", "staff"],
-    # 兩歲專班與三至五歲班之人數／教保員數須分別列出（幼照法第16條師生比規定不同，
-    # 不可用全園混合平均互相稀釋），對齊全國教保資訊網之分齡欄位。
-    "classes_age2": ["兩歲專班班級數", "兩歲班班級數", "2歲專班班級數"],
-    "enrolled_age2": ["兩歲專班幼生數", "兩歲專班人數", "兩歲以上未滿三歲人數", "2歲專班人數"],
-    "teacher_count_age2": ["兩歲專班教保服務人員數", "兩歲專班教保員數", "兩歲專班教師數"],
-    "enrolled_age35": ["三至五歲幼生數", "三足歲以上未滿入國小人數", "三歲以上人數"],
-    "teacher_count_age35": ["三至五歲教保服務人員數", "三至五歲教保員數", "三歲以上教保員數"],
     "principal": ["負責人", "園長", "代表人", "principal"],
     "address": ["地址", "機構地址", "園所地址", "address"],
     "phone": ["電話", "聯絡電話", "phone", "tel"],
@@ -73,16 +66,6 @@ ALIASES: dict[str, list[str]] = {
     "items_failed": ["待改善項目數", "未通過項目數", "缺失項目數"],
     "followup_required": ["需追蹤", "追蹤複評", "是否追蹤"],
     "score": ["評鑑分數", "分數", "得分"],
-
-    "school_year": ["學年度", "收費學年度", "年度"],
-    "tuition": ["學費", "月費", "學費收費"],
-    "misc_fee": ["雜費"],
-    "meal_fee": ["餐點費", "點心費", "午餐費", "餐費"],
-    "transport_fee": ["交通費", "娃娃車費"],
-    "material_fee": ["材料費", "活動費", "學用品費"],
-    "other_fee": ["其他費用", "代辦費", "課後延托費"],
-    "months": ["收費月數", "月數"],
-    "declared_extra_items": ["額外收費項目數", "未公告收費項目數"],
 
     "fiscal_year": ["會計年度", "決算年度", "年度", "fiscalyear"],
     "students_avg": ["平均幼生數", "在園人數", "幼生數"],
@@ -110,10 +93,6 @@ ALIASES: dict[str, list[str]] = {
     "post_date": ["發文日期", "日期", "時間", "發布日期"],
     "content": ["內容", "貼文內容", "文本", "留言", "文字"],
     "engagement": ["互動數", "按讚數", "熱度", "回覆數"],
-
-    "change_date": ["異動日期", "生效日期", "日期"],
-    "change_type": ["異動類別", "異動別", "類型"],
-    "role": ["職稱", "身分", "職務"],
 }
 
 TABLES: dict[str, dict[str, Any]] = {
@@ -121,8 +100,7 @@ TABLES: dict[str, dict[str, Any]] = {
         "patterns": ["institution", "基本資料", "園所", "機構"],
         "key": "inst_id",
         "ints": ["found_year", "classes", "approved_capacity", "enrolled",
-                 "teacher_count", "staff_count", "classes_age2", "enrolled_age2",
-                 "teacher_count_age2", "enrolled_age35", "teacher_count_age35"],
+                 "teacher_count", "staff_count"],
     },
     "penalties": {
         "patterns": ["penalt", "裁罰", "處分", "違規"],
@@ -133,12 +111,6 @@ TABLES: dict[str, dict[str, Any]] = {
         "patterns": ["evaluation", "評鑑"],
         "ints": ["eval_year", "items_failed", "followup_required"],
         "floats": ["score"],
-    },
-    "fees": {
-        "patterns": ["fee", "收費"],
-        "ints": ["school_year", "tuition", "misc_fee", "meal_fee",
-                 "transport_fee", "material_fee", "other_fee", "months",
-                 "declared_extra_items"],
     },
     "financials": {
         "patterns": ["financial", "決算", "財務", "budget"],
@@ -155,10 +127,6 @@ TABLES: dict[str, dict[str, Any]] = {
         "patterns": ["post", "輿情", "社群", "sentiment"],
         "ints": ["engagement"],
         "dates": ["post_date"],
-    },
-    "staff_changes": {
-        "patterns": ["staff", "異動", "人員"],
-        "dates": ["change_date"],
     },
 }
 

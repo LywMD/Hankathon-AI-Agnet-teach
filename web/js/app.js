@@ -351,7 +351,7 @@
           <div class="legend">${(s.bands || []).map(b =>
             `<span><i style="background:${b.color}"></i>${b.label} ${b.count} 所（${b.pct_range}）</span>`).join("")}</div>
         </div>
-        <div class="card"><h3>五大構面平均風險</h3>
+        <div class="card"><h3>各構面平均風險</h3>
           <div class="hint">各構面 0～100 分平均值，虛線可對照目前權重設定。</div>
           <div id="cRadar"></div>
         </div>
@@ -531,7 +531,7 @@
               ${r.evidence ? `<div class="e">${esc(r.evidence)}</div>` : ""}
             </div>`).join(""))}
         </div>
-        <div class="card"><h3>五構面雷達圖</h3><div id="cRadar"></div>
+        <div class="card"><h3>構面雷達圖</h3><div id="cRadar"></div>
           <div class="kv" style="margin-top:10px">
             ${ex.dimensions.map(dd => `<div class="k">${dd.label}</div><div class="v">${fmt(dd.score,1)} 分（權重 ${pct(dd.weight,0)}）</div>`).join("")}
           </div>
@@ -544,25 +544,15 @@
         ${act.critical_flags && act.critical_flags.length ? `<div class="note warn" style="margin-top:10px"><b>重大示警</b>：${act.critical_flags.map(esc).join("；")}</div>` : ""}
       </div>
 
-      <div class="card"><h3>基本與營運資料</h3>
+      <div class="card"><h3>基本資料</h3>
         <div class="grid g3">
           <div class="kv">
             <div class="k">核定招收</div><div class="v">${fmt(inst.approved_capacity)} 人</div>
-            <div class="k">實際招收</div><div class="v">${fmt(inst.enrolled)} 人（${pct(f.over_enroll)}）</div>
+            <div class="k">實際招收</div><div class="v">${fmt(inst.enrolled)} 人</div>
             <div class="k">班級數</div><div class="v">${fmt(inst.classes)} 班</div>
+          </div>
+          <div class="kv">
             <div class="k">教保人員數</div><div class="v">${fmt(inst.teacher_count)} 人</div>
-            <div class="k">全園生師比（參考）</div><div class="v">${f.student_teacher != null ? fmt(f.student_teacher,1)+"：1" : "-"}</div>
-          </div>
-          <div class="kv">
-            <div class="k">兩歲專班人數</div><div class="v">${fmt(inst.enrolled_age2 || 0)} 人</div>
-            <div class="k">兩歲專班教保員</div><div class="v">${fmt(inst.teacher_count_age2 || 0)} 人</div>
-            <div class="k">兩歲專班生師比</div><div class="v">${f.student_teacher_age2 != null ? fmt(f.student_teacher_age2,1)+"：1（法定上限 8：1）" : "無兩歲專班"}</div>
-            <div class="k">三至五歲人數</div><div class="v">${fmt(inst.enrolled_age35 != null ? inst.enrolled_age35 : inst.enrolled)} 人</div>
-            <div class="k">三至五歲生師比</div><div class="v">${f.student_teacher_age35 != null ? fmt(f.student_teacher_age35,1)+"：1（法定上限 15：1）" : "-"}</div>
-          </div>
-          <div class="kv">
-            <div class="k">近一年人員異動</div><div class="v">${fmt(det.staff_changes_1y)} 人次</div>
-            <div class="k">負責人跨園所數</div><div class="v">${fmt(f.principal_multi)}</div>
             <div class="k">地址</div><div class="v">${esc(inst.address || "-")}</div>
             <div class="k">位置</div><div class="v">${mapsLink(inst) || "-"}</div>
             <div class="k">電話</div><div class="v">${esc(inst.phone || "-")}</div>
@@ -607,15 +597,6 @@
               <div class="k">判定</div><div class="v">${det.round_bias.level}</div>
             </div>` : '<div class="empty">樣本不足</div>'}
         </div>
-        <div class="card"><h3>收費與決算交叉核對</h3>
-          ${det.cross_check && det.cross_check.available ? `
-            <div class="kv">
-              <div class="k">推估收入</div><div class="v">${money(det.cross_check.estimated)}</div>
-              <div class="k">決算收入</div><div class="v">${money(det.cross_check.reported)}</div>
-              <div class="k">落差</div><div class="v">${pct(det.cross_check.gap_ratio)}</div>
-            </div>
-            <div class="hint" style="margin-top:8px">${det.cross_check.direction}</div>` : '<div class="empty">資料不足</div>'}
-        </div>
       </div>
 
       <div class="grid g2">
@@ -653,7 +634,7 @@
       </div>
 
       <div class="card"><h3>Claude AI agent 深度偵查</h3>
-        <div class="hint">Claude 自主呼叫工具調閱本機構之財務、鑑識、生師比、裁罰與輿情資料後產出的鑑識研判，
+        <div class="hint">Claude 自主呼叫工具調閱本機構之財務、鑑識、裁罰與輿情資料後產出的鑑識研判，
           與上方統計／模型分數為互補的獨立意見。需於「設定」頁設定 API 金鑰並連線網路。</div>
         <div id="aiCard">${renderAiReport(d.ai_report, id)}</div>
       </div>
@@ -753,9 +734,6 @@
                 <td>${esc(o.level)}</td></tr>`).join(""))}</tbody>
           </table></div>
         </div>
-        <div class="card"><h3>收費與決算交叉核對落差排行</h3>
-          <div id="cGaps"></div>
-        </div>
       </div>
       <div class="grid g2">
         <div class="card"><h3>多維異常偵測排行</h3>
@@ -792,10 +770,6 @@
       points: fo.scatter.map(p => ({ x: p.x, y: p.y, label: p.name,
         color: p.anomaly > 60 ? "#e8590c" : "#38bdf8", opacity: 0.4 + Math.min(1, p.anomaly/100)*0.5 })),
       xLabel: "人事費率", yLabel: "結餘率", xFormat: pct, yFormat: pct,
-    });
-    window.KChart.hbar("cGaps", {
-      data: (fo.cross_check_gaps || []).slice(0, 12).map(g => ({ label: g.name, value: (g.gap_ratio||0)*100,
-        note: g.direction })), valueLabel: "落差", unit: "%", decimals: 1,
     });
   }
 
@@ -963,7 +937,7 @@
     main().innerHTML = `
       ${pageHead("系統設定", "調整權重與模型混合比例後即時重新計算分數；資料來源可切換本機檔案或 AWS 公開網址。")}
       <div class="grid g2">
-        <div class="card"><h3>五大構面權重</h3>
+        <div class="card"><h3>各構面權重</h3>
           <div class="hint">數值愈高代表該構面對綜合分數影響愈大，總和不需為 1（系統會自動正規化）。</div>
           ${(meta.dimensions || []).map(d => `
             <div class="field">
@@ -1012,7 +986,7 @@
         <div class="hint">
           全體機構的排名／儀表板／稽查排程由左側統計與模型流程即時產生，<b>不需要</b>此處設定。
           此區塊是額外的深度偵查功能：針對單一機構，讓 Claude 自主呼叫工具調閱財務比率、
-          同儕偏離、鑑識檢定、生師比、裁罰輿情等資料，產出自然語言鑑識報告。
+          同儕偏離、鑑識檢定、裁罰輿情等資料，產出自然語言鑑識報告。
           <b>需要網路連線與你自己的 Anthropic API 金鑰</b>，金鑰僅存於本機 settings.json，
           不會傳送至本應用程式以外的任何伺服器。
         </div>

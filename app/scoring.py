@@ -8,8 +8,7 @@
 from __future__ import annotations
 
 from . import forensics
-from .config import (DIMENSIONS, RATIO_LIMIT_AGE2, RATIO_LIMIT_AGE35,
-                    band_label, eval_result_level)
+from .config import DIMENSIONS, band_label, eval_result_level
 
 # 進入監督式模型的特徵（順序即報表顯示順序）
 FEATURE_NAMES = [
@@ -19,10 +18,7 @@ FEATURE_NAMES = [
     "dev_surplus_ratio", "dev_teaching_ratio", "dev_cost_per_student",
     "last2_score", "round_score", "first_digit_score",
     "yoy_expense_score", "yoy_personnel_score",
-    "fee_gap_score", "fee_extra_items",
-    "over_enroll", "student_teacher", "ratio_over_age2", "ratio_over_age35",
-    "turnover", "inst_age", "capacity",
-    "principal_multi",
+    "inst_age", "capacity",
     "eval_penalty", "eval_items_failed", "eval_fail_history",
     "senti_score", "senti_neg_ratio", "senti_burst", "senti_volume",
     "senti_child_topic",
@@ -50,16 +46,8 @@ FEATURE_LABELS = {
     "first_digit_score": "首位數分布偏離同儕",
     "yoy_expense_score": "支出年度跳動幅度",
     "yoy_personnel_score": "人事費年度跳動幅度",
-    "fee_gap_score": "收費與決算交叉核對落差",
-    "fee_extra_items": "未公告額外收費項目",
-    "over_enroll": "招收人數／核定人數",
-    "student_teacher": "全園生師比（參考）",
-    "ratio_over_age2": "兩歲專班生師比超額（法定8：1）",
-    "ratio_over_age35": "三至五歲班生師比超額（法定15：1）",
-    "turnover": "近一年教保人員流動率",
     "inst_age": "機構成立年數",
     "capacity": "核定招收規模",
-    "principal_multi": "負責人跨園所數",
     "eval_penalty": "最近評鑑結果扣分",
     "eval_items_failed": "評鑑待改善項目數",
     "eval_fail_history": "歷次評鑑未通過次數",
@@ -103,36 +91,19 @@ def dimension_scores(f: dict) -> dict[str, float]:
 
     # ---------------- 財務（鑑識會計）
     fin = _wavg([
-        (_c(f.get("dev_max")), 0.19),
-        (_c(f.get("dev_mean")), 0.09),
-        (_c(f.get("last2_score")), 0.16),
-        (_c(f.get("round_score")), 0.10),
-        (_c(f.get("yoy_expense_score")), 0.11),
-        (_c(f.get("fee_gap_score")), 0.18),
-        (_c(f.get("anomaly_score")), 0.12),
-        (_c(f.get("first_digit_score")), 0.05),
+        (_c(f.get("dev_max")), 0.23),
+        (_c(f.get("dev_mean")), 0.11),
+        (_c(f.get("last2_score")), 0.20),
+        (_c(f.get("round_score")), 0.12),
+        (_c(f.get("yoy_expense_score")), 0.13),
+        (_c(f.get("anomaly_score")), 0.15),
+        (_c(f.get("first_digit_score")), 0.06),
     ])
     if not f.get("fin_available"):
         # 無決算資料：以「資料不足」處理，僅用可得訊號並標註
         fin = _wavg([
-            (_c(f.get("fee_gap_score")), 0.4),
-            (_c(f.get("anomaly_score")), 0.6),
+            (_c(f.get("anomaly_score")), 1.0),
         ])
-
-    # ---------------- 營運
-    # 生師比採兩歲專班（法定 8：1）與三至五歲班（法定 15：1）分別計算後取
-    # 較嚴重者，而非全園混合平均——避免其中一個年齡層的超額情形被另一個
-    # 年齡層的餘裕人力稀釋掩蓋（此為新北市城鄉發展局內部會議明確要求之計算方式）。
-    over2 = f.get("ratio_over_age2") or 0.0
-    over35 = f.get("ratio_over_age35") or 0.0
-    ratio_score = max(_c(over2 / 4.0 * 100), _c(over35 / 6.0 * 100))
-    oe = f.get("over_enroll")
-    ope = _wavg([
-        (ratio_score, 0.34),
-        (_c(((oe or 1.0) - 1.0) / 0.25 * 100) if oe is not None else None, 0.30),
-        (_c((f.get("turnover") or 0) / 0.6 * 100), 0.24),
-        (_c((f.get("principal_multi") or 0) * 25), 0.12),
-    ])
 
     # ---------------- 評鑑
     ev = _wavg([
@@ -148,7 +119,7 @@ def dimension_scores(f: dict) -> dict[str, float]:
         (_c((f.get("senti_child_topic") or 0) * 35), 0.12),
     ])
 
-    return {"compliance": comp, "financial": fin, "operation": ope,
+    return {"compliance": comp, "financial": fin,
             "evaluation": ev, "sentiment": sen}
 
 
@@ -251,37 +222,10 @@ def explain(rec: dict, dims: dict[str, float], weights: dict[str, float],
             f"首位數分布 MAD 為全體機構中位數的 {fd.get('adjusted_ratio')} 倍"
             f"（{fd['level']}）。因單一機構科目金額集中於少數量級，此指標僅供輔助判讀，"
             "須與末兩位數檢定併同研判。")
-    cc = detail.get("cross_check") or {}
-    if cc.get("available") and cc.get("score", 0) >= 30:
-        add("high", "收費明細與決算收入交叉核對落差偏大",
-            f"依公告收費標準 × 實際幼生數推估學雜費收入約 {cc['estimated']:,} 元，"
-            f"決算申報 {cc['reported']:,} 元，落差 {cc['gap_ratio']*100:.1f}%：{cc['direction']}。")
     yoy = (detail.get("yoy") or {}).get("expense") or {}
     if yoy.get("score", 0) >= 40:
         add("medium", "年度支出出現異常跳動",
             f"支出年增減最大幅度達 {yoy['max_abs_change']*100:.1f}%，須確認是否有一次性或不實列帳。")
-
-    # 營運
-    if (f.get("over_enroll") or 0) > 1.02:
-        add("high", "招收人數超出核定人數",
-            f"實際招收 {rec['inst'].get('enrolled')} 人／核定 {rec['inst'].get('approved_capacity')} 人"
-            f"（{f['over_enroll']*100:.1f}%），涉超收之虞。")
-    st2 = f.get("student_teacher_age2")
-    if st2 is not None and st2 > RATIO_LIMIT_AGE2 + 0.4:
-        add("high", "兩歲專班生師比不符法定標準",
-            f"兩歲專班生師比為 {st2:.1f}：1，超過幼兒教育及照顧法規定之 {RATIO_LIMIT_AGE2}：1 上限"
-            "（兩歲以上未滿三歲之班級，須獨立計算，不得以其他班級人力稀釋）。")
-    st35 = f.get("student_teacher_age35")
-    if st35 is not None and st35 > RATIO_LIMIT_AGE35 + 0.4:
-        add("high", "三至五歲班生師比不符法定標準",
-            f"三至五歲班生師比為 {st35:.1f}：1，超過幼兒教育及照顧法規定之 {RATIO_LIMIT_AGE35}：1 上限。")
-    if (f.get("turnover") or 0) >= 0.35:
-        add("medium", "教保人員流動率偏高",
-            f"近一年異動 {detail.get('staff_changes_1y',0)} 人次，流動率 {f['turnover']*100:.0f}%，"
-            "影響照顧品質與班級穩定。")
-    if (f.get("principal_multi") or 0) >= 1:
-        add("low", "負責人同時經營多所機構",
-            f"同一負責人另有 {int(f['principal_multi'])} 所機構，宜併案查核資金流向。")
 
     # 評鑑
     # 以 features.eval_result_level 判讀描述性結果字串，不可用
@@ -345,10 +289,8 @@ def action_suggestion(band: str, dims: dict[str, float], reasons: list[dict]) ->
     playbook = {
         "compliance": ["調閱歷次裁處卷宗與改善計畫執行情形", "現場複查前次缺失項目",
                        "訪談教保服務人員了解通報流程落實度"],
-        "financial": ["調閱決算原始憑證與傳票，抽核異常科目", "核對收費公告、繳費收據與帳載收入",
+        "financial": ["調閱決算原始憑證與傳票，抽核異常科目",
                       "確認人事費與投保、薪資轉帳紀錄一致性"],
-        "operation": ["現場清點實際在園幼生與到班師資", "查核班級編制與教保服務人員資格證明",
-                      "檢視人員異動與代課紀錄"],
         "evaluation": ["追蹤基礎評鑑待改善項目之改善證據", "安排輔導訪視並限期複評"],
         "sentiment": ["就社群反映事項要求書面說明並保全監視紀錄",
                       "必要時啟動不定期突擊稽查", "同步聯繫社政單位確認有無通報案件"],

@@ -18,7 +18,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Callable
 
-from . import config, forensics, stats
+from . import forensics, stats
 from .scoring import FEATURE_LABELS
 
 API_URL = "https://api.anthropic.com/v1/messages"
@@ -31,22 +31,19 @@ SYSTEM_PROMPT = """你是新北市教保機構的鑑識會計稽核專家，任�
 
 工作方式：
 1. 你可以自主呼叫提供的工具，依需要調閱該機構的財務比率、同儕偏離程度、\
-班佛定律與末兩位數等基礎鑑識會計檢定、生師比與招收規模、裁罰與評鑑歷程、\
-社群輿情。不必每個工具都呼叫——依你的專業判斷，只查你認為與風險研判相關的項目。
-2. 特別注意：幼兒教育及照顧法第16條規定，兩歲以上未滿三歲之班級師生比上限為\
-8：1，三歲以上至入國小前之班級為15：1，兩者須分別計算，不可用全園混合平均\
-互相稀釋。
-3. 對於財務數字，請留意可能的人工編造跡象（金額尾數過度集中、明顯偏離同儕\
+班佛定律與末兩位數等基礎鑑識會計檢定、裁罰與評鑑歷程、社群輿情。不必每個\
+工具都呼叫——依你的專業判斷，只查你認為與風險研判相關的項目。
+2. 對於財務數字，請留意可能的人工編造跡象（金額尾數過度集中、明顯偏離同儕\
 比率、收支落差異常）但也要考慮合理的另類解釋（如新設機構人事費率偏低、\
 一次性資本支出造成年度跳動），避免武斷。
-4. 你可以呼叫 search_live_news 即時上網查詢最新新聞。裁罰紀錄的公告有時間差，\
+3. 你可以呼叫 search_live_news 即時上網查詢最新新聞。裁罰紀錄的公告有時間差，\
 新聞往往先揭露事件，因此當既有資料看起來平淡但你仍有疑慮時，這個工具特別有用。\
 引用新聞時務必註明來源與日期，並提醒該資訊尚未經人工核實。
-5. 下結論前請先呼叫 get_data_coverage 確認哪些構面其實沒有資料。\
+4. 下結論前請先呼叫 get_data_coverage 確認哪些構面其實沒有資料。\
 「查無裁罰紀錄」與「已查核確認合規」是完全不同的兩件事；某構面無資料時，\
 不得因其分數低而推論該面向安全，應在報告中明確指出資料限制，並據此調低信心程度。
-6. 完成調查後，務必呼叫 submit_report 工具提交最終結論，不要只用文字回覆。
-7. 不得臆測或杜撰未提供的數字。所有數字都必須來自工具回傳的內容。
+5. 完成調查後，務必呼叫 submit_report 工具提交最終結論，不要只用文字回覆。
+6. 不得臆測或杜撰未提供的數字。所有數字都必須來自工具回傳的內容。
 """
 
 TOOLS = [
@@ -65,14 +62,7 @@ TOOLS = [
     {
         "name": "get_forensic_tests",
         "description": "取得基礎鑑識會計檢定結果：決算科目金額末兩位數均勻性檢定（Nigrini 方法，"
-                       "偵測人工估列／填製）、金額整數偏誤、首位數分布與同儕基準之偏離、"
-                       "收費明細×幼生數 與 決算學雜費收入 之交叉核對落差。",
-        "input_schema": {"type": "object", "properties": {}},
-    },
-    {
-        "name": "get_operational_profile",
-        "description": "取得核定與實際招收人數、超收率、兩歲專班與三至五歲班之生師比"
-                       "（含各自法定上限比對）、教保人員流動率、負責人是否同時經營多所機構。",
+                       "偵測人工估列／填製）、金額整數偏誤、首位數分布與同儕基準之偏離。",
         "input_schema": {"type": "object", "properties": {}},
     },
     {
@@ -235,7 +225,6 @@ def _tool_get_forensic_tests(rec: dict) -> dict:
     l2 = det.get("last_two") or {}
     rb = det.get("round_bias") or {}
     fd = det.get("digit_conformity") or {}
-    cc = det.get("cross_check") or {}
     return {
         "last_two_digit_test": {
             "sufficient_sample": l2.get("sufficient", False),
@@ -251,34 +240,6 @@ def _tool_get_forensic_tests(rec: dict) -> dict:
             "mad_ratio_vs_peer_median": fd.get("adjusted_ratio"), "level": fd.get("level"),
             "note": "此為輔助參考指標，單一機構樣本數有限，須與末兩位數檢定併同研判",
         } if fd.get("sufficient") else {"sufficient_sample": False},
-        "fee_cross_check": {
-            "available": cc.get("available", False),
-            "estimated_tuition_revenue": cc.get("estimated"),
-            "reported_tuition_revenue": cc.get("reported"),
-            "gap_ratio": cc.get("gap_ratio"), "direction": cc.get("direction"),
-        } if cc.get("available") else {"available": False},
-    }
-
-
-def _tool_get_operational_profile(rec: dict) -> dict:
-    f = rec["features"]
-    inst = rec["inst"]
-    return {
-        "approved_capacity": inst.get("approved_capacity"),
-        "enrolled": inst.get("enrolled"),
-        "over_enroll_ratio": f.get("over_enroll"),
-        "student_teacher_age2": f.get("student_teacher_age2"),
-        "student_teacher_age2_legal_limit": config.RATIO_LIMIT_AGE2,
-        "student_teacher_age2_violation": (
-            f.get("student_teacher_age2") is not None and
-            f["student_teacher_age2"] > config.RATIO_LIMIT_AGE2),
-        "student_teacher_age35": f.get("student_teacher_age35"),
-        "student_teacher_age35_legal_limit": config.RATIO_LIMIT_AGE35,
-        "student_teacher_age35_violation": (
-            f.get("student_teacher_age35") is not None and
-            f["student_teacher_age35"] > config.RATIO_LIMIT_AGE35),
-        "staff_turnover_rate_1y": f.get("turnover"),
-        "principal_operates_other_institutions": f.get("principal_multi"),
     }
 
 
@@ -427,7 +388,6 @@ def _tool_get_data_coverage(rec: dict) -> dict:
     先確認覆蓋情形，才能給出誠實的信心程度。
     """
     det = rec["detail"]
-    f = rec["features"]
     out: dict[str, dict] = {}
     for dim, (key, label) in _COVERAGE_KEYS.items():
         val = det.get(key)
@@ -442,14 +402,6 @@ def _tool_get_data_coverage(rec: dict) -> dict:
             detail_txt = f"{len(val or [])} 筆紀錄"
         out[dim] = {"source": label, "has_data": has, "detail": detail_txt}
 
-    out["operation"] = {
-        "source": "招收人數與人員數",
-        "has_data": rec["inst"].get("enrolled") is not None,
-        "detail": (f"核定 {rec['inst'].get('approved_capacity')}／"
-                   f"實際 {rec['inst'].get('enrolled')}；"
-                   f"兩歲班生師比 {f.get('student_teacher_age2')}、"
-                   f"三至五歲班 {f.get('student_teacher_age35')}"),
-    }
     missing = [v["source"] for v in out.values() if not v["has_data"]]
     return {
         "coverage": out,
@@ -473,8 +425,6 @@ def _execute_tool(name: str, tool_input: dict, rec: dict, recs: list[dict]) -> A
         return _tool_get_peer_deviation(rec)
     if name == "get_forensic_tests":
         return _tool_get_forensic_tests(rec)
-    if name == "get_operational_profile":
-        return _tool_get_operational_profile(rec)
     if name == "get_compliance_history":
         return _tool_get_compliance_history(rec)
     if name == "get_sentiment_summary":
@@ -606,7 +556,7 @@ def rule_based_review(rec: dict, recs: list[dict] | None = None) -> dict:
         level = "極低風險"
 
     missing = coverage.get("missing_sources") or []
-    n_dims = len(_COVERAGE_KEYS) + 1
+    n_dims = len(_COVERAGE_KEYS)
     if len(missing) >= n_dims - 1:
         confidence = "低"
     elif missing:

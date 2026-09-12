@@ -10,8 +10,7 @@ from collections import defaultdict
 from datetime import date
 
 from . import config, forensics, nlp, stats  # noqa: F401
-from .config import (PENALTY_CATEGORIES, RATIO_LIMIT_AGE2, RATIO_LIMIT_AGE35,
-                     eval_result_level)
+from .config import PENALTY_CATEGORIES, eval_result_level
 
 DISPOSITION_SEVERITY = {
     "停止招生": 3.0, "減招": 2.6, "公布姓名及名稱": 2.2,
@@ -42,15 +41,8 @@ def build(bundle, as_of: date) -> list[dict]:
     pen_by = _index(bundle["penalties"])
     fin_by = _index(bundle["financials"])
     led_by = _index(bundle["ledger"])
-    fee_by = _index(bundle["fees"])
     ev_by = _index(bundle["evaluations"])
     post_by = _index(bundle["posts"])
-    staff_by = _index(bundle["staff_changes"])
-
-    principal_count: dict[str, int] = defaultdict(int)
-    for i in insts:
-        if i.get("principal"):
-            principal_count[str(i["principal"])] += 1
 
     fiscal_cut = as_of.year - 1 if as_of.month <= 6 else as_of.year
 
@@ -154,53 +146,14 @@ def build(bundle, as_of: date) -> list[dict]:
         f["yoy_personnel_score"] = yoy_per["score"]
         f["yoy_revenue_score"] = yoy_rev["score"]
 
-        fee = (sorted(fee_by.get(iid, []), key=lambda x: x.get("school_year") or 0)[-1]
-               if fee_by.get(iid) else None)
-        cross = forensics.fee_cross_check(fee, fins[-1] if fins else None,
-                                         inst.get("enrolled"))
-        detail["fee"] = fee
-        detail["cross_check"] = cross
-        f["fee_gap_score"] = cross["score"]
-        f["fee_extra_items"] = float((fee or {}).get("declared_extra_items") or 0)
         f["fin_available"] = 1.0 if fins else 0.0
 
-        # ---------------------------------------------- 營運
+        # ---------------------------------------------- 規模／年齡（一般特徵）
         enrolled = inst.get("enrolled") or 0
         cap = inst.get("approved_capacity") or 0
         teachers = inst.get("teacher_count") or 0
-        f["over_enroll"] = round(enrolled / cap, 4) if cap else None
-        f["student_teacher"] = round(enrolled / teachers, 4) if teachers else None
         f["capacity"] = cap
-
-        # 兩歲專班 vs 三至五歲班生師比：依幼照法第16條規定分別計算，
-        # 不可用全園混合平均互相稀釋（否則兩歲專班短配教保員的情形會被掩蓋）。
-        # 第16條第5項：公立學校附設幼兒園應再增置教保服務人員1人，此員額係
-        # 法定加派人力（非為服務特定班級），計算生師比前應先扣除，
-        # 否則會把依法必配的人力誤算為班級餘裕、低估實際負荷。
-        e2 = inst.get("enrolled_age2") or 0
-        t2 = inst.get("teacher_count_age2") or 0
-        e35 = inst.get("enrolled_age35")
-        t35 = inst.get("teacher_count_age35")
-        teachers_for_ratio = teachers
-        if inst.get("org_type") == "公立" and teachers > config.PUBLIC_KINDERGARTEN_EXTRA_STAFF:
-            teachers_for_ratio = teachers - config.PUBLIC_KINDERGARTEN_EXTRA_STAFF
-        if e35 is None or t35 is None:
-            # 未提供分齡資料：以保守假設回退為三至五歲班（不假設有兩歲專班）
-            e35 = max(0, enrolled - e2)
-            t35 = max(0, teachers_for_ratio - t2)
-        st2 = round(e2 / t2, 4) if t2 else None
-        st35 = round(e35 / t35, 4) if t35 else None
-        f["student_teacher_age2"] = st2
-        f["student_teacher_age35"] = st35
-        f["ratio_over_age2"] = max(0.0, st2 - RATIO_LIMIT_AGE2) if st2 is not None else 0.0
-        f["ratio_over_age35"] = max(0.0, st35 - RATIO_LIMIT_AGE35) if st35 is not None else 0.0
         f["inst_age"] = max(0, as_of.year - (inst.get("found_year") or as_of.year))
-        changes = [c for c in staff_by.get(iid, [])
-                   if (_pdate(c.get("change_date")) or date(1900, 1, 1)) <= as_of
-                   and (as_of - (_pdate(c.get("change_date")) or date(1900, 1, 1))).days <= 365]
-        f["turnover"] = round(len(changes) / teachers, 4) if teachers else None
-        f["principal_multi"] = principal_count.get(str(inst.get("principal")), 1) - 1
-        detail["staff_changes_1y"] = len(changes)
 
         # ---------------------------------------------- 評鑑
         evs = [e for e in ev_by.get(iid, []) if (e.get("eval_year") or 0) <= as_of.year]
