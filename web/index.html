@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>教保機構風險預警系統</title>
+<!-- 資源一律使用相對路徑：靜態網站（GitHub Pages）會部署在
+     https://<帳號>.github.io/<專案>/ 這類子路徑下，絕對路徑會指向網域根目錄
+     而載入失敗。相對路徑在本機程式模式（服務根為 /）同樣正確。 -->
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<div id="boot">
+  <h1>教保機構風險預警系統</h1>
+  <div class="sub">AI × 鑑識會計 × 輿情分析 之高風險教保機構預警平台</div>
+  <div class="bar"><i id="bootBar"></i></div>
+  <div class="msg" id="bootMsg">正在啟動服務…</div>
+  <div class="steps">
+    載入公開資料 → 建立訓練期特徵 → 訓練預警模型 → 建立當期特徵 → 產生儀表板
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <div class="layout">
+    <div class="side">
+      <div class="brand">
+        <div class="t" id="brandName">教保機構風險預警系統</div>
+        <div class="s" id="brandSub">AI × 鑑識會計 × 輿情分析</div>
+        <div class="v" id="brandVer"></div>
+      </div>
+      <div class="nav">
+        <a href="#/dashboard" data-key="dashboard"><span class="ico">&#128202;</span>總覽</a>
+        <a href="#/institutions" data-key="institutions"><span class="ico">&#127979;</span>機構清單</a>
+        <a href="#/forensics" data-key="forensics"><span class="ico">&#128269;</span>鑑識分析</a>
+        <a href="#/sentiment" data-key="sentiment"><span class="ico">&#128172;</span>輿情分析</a>
+        <a href="#/schedule" data-key="schedule"><span class="ico">&#128197;</span>稽查排程</a>
+        <a href="#/metrics" data-key="metrics"><span class="ico">&#128200;</span>模型驗證</a>
+        <a href="#/settings" data-key="settings"><span class="ico">&#9881;&#65039;</span>設定</a>
+      </div>
+      <div class="foot" id="sideFoot">僅於本機執行，資料不對外傳送</div>
+    </div>
+    <div class="main" id="main">
+      <div class="loading">載入中…</div>
+    </div>
+  </div>
+</div>
+
+<!-- static-mode.js 只存在於靜態匯出版本，用來設定 window.KREWS_STATIC。
+     本機執行時此檔不存在，瀏覽器會忽略載入失敗，前端即維持動態模式。 -->
+<script src="static-mode.js" onerror="void 0"></script>
+<script src="js/charts.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

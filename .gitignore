@@ -1,0 +1,33 @@
+# 建置產物
+build/
+dist/
+release/
+*.pyc
+__pycache__/
+
+# 執行期產生的檔案
+.tmp/
+output/
+sample_data/
+krews.log
+settings.json
+
+# 靜態網站由 CI 自動產生，不需提交
+# （若想手動控制發布內容，可把這行註解掉並提交 docs/）
+docs/
+
+# 資料建置階段的中間產物：只提交最終資料集，避免載入器混淆
+data/institutions_official.csv
+data/institutions_nonprofit.csv
+data/financials_nonprofit.csv
+data/ledger_nonprofit.csv
+data/institutions_public.csv
+data/financials_public.csv
+
+# OCR 訓練資料體積大（56MB），不提交；由使用者自行放置
+resources/tessdata/*.traineddata
+
+# 原始 PDF 來源不納入版控
+w/
+非營利園財報/
+公校/

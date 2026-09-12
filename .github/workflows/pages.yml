@@ -1,0 +1,89 @@
+# 把分析結果發布到 GitHub Pages，讓評審點一個網址就能使用。
+#
+# 運作方式
+# --------
+# 儲存庫內已提交建置完成的 data/*.csv，因此 CI 只需執行分析並匯出靜態檔，
+# 不需要 OCR、不需要對外採集（那些屬於資料建置階段，在本機執行）。
+# 主程式只依賴 Python 標準函式庫，所以這裡不必安裝任何套件。
+#
+# 首次啟用步驟見 README_部署.md。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    # 只有前端、分析邏輯或資料變動時才重新發布
+    paths:
+      - 'app/**'
+      - 'web/**'
+      - 'data/**'
+      - 'scripts/export_static.py'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:      # 也允許在 Actions 頁面手動觸發
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時只保留一個發布流程，新的推送會取代仍在排隊的舊流程
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 確認資料集存在
+        run: |
+          if [ ! -f data/institutions.csv ]; then
+            echo "::error::找不到 data/institutions.csv。"
+            echo "請先在本機執行 scripts/collect_ece.py 與 scripts/build_dataset.py，"
+            echo "並將 data/*.csv 一併提交到儲存庫。"
+            exit 1
+          fi
+          wc -l data/*.csv
+
+      - name: 匯出靜態網站
+        run: python scripts/export_static.py --out docs
+
+      - name: 驗證匯出結果
+        run: |
+          test -f docs/index.html
+          test -f docs/api/summary.json
+          test -f docs/api/institutions.json
+          python - <<'PY'
+          import json, pathlib, sys
+          s = json.loads(pathlib.Path('docs/api/summary.json').read_text('utf-8'))
+          n = s.get('n_institutions') or 0
+          print(f"機構數 {n}、高風險 {s.get('n_high_risk')} 所")
+          # 分析結果為空就不該發布，否則評審會看到一個空的儀表板
+          if n == 0:
+              sys.exit("匯出結果為空，中止發布")
+          zero = [d['label'] for d in (s.get('dimension_avg') or [])
+                  if not d.get('avg')]
+          if zero:
+              print(f"::warning::下列構面平均分數為 0（對應資料表可能未提交）：{'、'.join(zero)}")
+          PY
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
