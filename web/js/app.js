@@ -442,8 +442,6 @@
         </div>
       </div>
     `;
-    (meta.org_types || []).forEach(o => $("#fOrg").insertAdjacentHTML("beforeend",
-      `<option value="${esc(o)}">${esc(o)}</option>`));
     (meta.bands || []).forEach(b => $("#fBand").insertAdjacentHTML("beforeend",
       `<option value="${esc(b.key)}">${esc(b.label)}</option>`));
     $("#fCity").value = STATE.listQuery.city;
@@ -457,6 +455,11 @@
         (data.cities || []).forEach(c => $("#fCity").insertAdjacentHTML("beforeend",
           `<option value="${esc(c)}">${esc(c)}</option>`));
         $("#fCity").value = q.city;
+      }
+      if ($("#fOrg").children.length <= 1) {
+        (data.org_types || []).forEach(o => $("#fOrg").insertAdjacentHTML("beforeend",
+          `<option value="${esc(o)}">${esc(o)}</option>`));
+        $("#fOrg").value = q.org_type;
       }
       $("#fCount").textContent = `共 ${data.total} 所，顯示 ${data.returned} 所`;
       $$("#instTbl th.srt").forEach(th => {
